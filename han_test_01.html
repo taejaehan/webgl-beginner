@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<head>
+<meta charset="UTF-8">
+<title>webgl han test 01</title>
+</head>
+<body>
+<!-- canavs -->
+<canvas id="webgl-canvas" style="border: none;" width="800" height="400"></canvas>
+
+<!-- Vertex Shader -->
+<script id="shader-vs" type="x-shader/x-vertex">
+    //attribute : 버텍스 셰이더와 웹지엘 애플리케이션 간의 버텍스 데이터 연결이다. 베텍스 셰이더 내부에서만 사용한다
+    //vec3 3개 요소를 갖는 실수형 벡터
+    attribute vec3 aVertexPosition;
+    void main(void) {
+        gl_Position = vec4(aVertexPosition, 1.0);
+    }
+</script>
+<!-- Fragment Shader -->
+<script id="shader-fs" type="x-shader/x-fragment">
+    void main(void) {
+       gl_FragColor = vec4(0.5, 0.9, 0.2, 1.0); //Green
+    }
+</script>
+<!-- code -->
+<script>
+    (function() {
+        var canvas, gl, prg, shaderProgram;
+
+        /*************************************1. canvas getContext****************************************/
+        canvas = document.getElementById("webgl-canvas");
+        try {
+            gl = canvas.getContext("experimental-webgl");
+        } catch (e) {
+            msg = "Error creating WebGL Context!: " + e.toString();
+        };
+        
+        /*****************************2. Initializes the program (shaders)********************************/
+        //1. getShader(create sharder, set shader source, compile shader)
+        function  getShader(gl, id) {
+            var shaderScript = document.getElementById(id),
+                shader;
+            if (!shaderScript) {
+                return null;
+            }
+            //1-1 create sharder
+            if (shaderScript.type == "x-shader/x-fragment") {
+                shader = gl.createShader(gl.FRAGMENT_SHADER);
+            } else if (shaderScript.type == "x-shader/x-vertex") {
+                shader = gl.createShader(gl.VERTEX_SHADER);
+            } else {
+                return null;
+            }
+            //1-2 set shader source
+            gl.shaderSource(shader, shaderScript.textContent);
+            //1-3 compile shader
+            gl.compileShader(shader);
+            //Shader 컴파일 성공 확인
+            if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
+                alert(gl.getShaderInfoLog(shader));
+                return null;
+            }
+            // 컴파일된 shader 반환
+            return shader;
+        };
+        var fgShader = getShader(gl, 'shader-fs');
+        var vxShader = getShader(gl, 'shader-vs');
+
+        //2. 새로운 프로그램 생성
+        prg = gl.createProgram();
+        //3. 현재 프로그램에 셰이더 추가
+        gl.attachShader(prg, vxShader);
+        gl.attachShader(prg, fgShader);
+        //4.gpu로 전달하는 실행가능한 버텍스와 프래그먼트 셰이더 생성
+        gl.linkProgram(prg);
+        //5.프로그램이 성공적이로 링크되었는지 검사
+        if (!gl.getProgramParameter(prg, gl.LINK_STATUS)) {
+            alert('Could not initialise shaders');
+        }
+        //6.성공적으로 링크됐다면 GPU에 인스톨
+        gl.useProgram(prg);
+        //7.프로그램 애트리뷰트와 유니폼을 변수에 매핑
+        prg.vertexPositionAttribute = gl.getAttribLocation(prg, 'aVertexPosition');
+
+        /*****************3. Initializes the buffers that we are going to use to draw ********************/
+        var vertices =  [
+            -0.5,0.5,0.0,   //Vertex 0
+            -0.5,-0.5,0.0,  //Vertex 1
+            0.5,-0.5,0.0,   //Vertex 2
+            0.5,0.5,0.0     //Vertex 4
+        ];   
+        var indices = [
+            0, 1, 2, // 0, 1, 2 이 되든 0, 2, 1 이 되든 2, 1, 0 이 되든 무관
+            3, 2, 0  // 0, 2, 3 이 되든 2, 3, 0 이 되든 3, 0, 2 이 되든 무관
+        ];
+        //1.버퍼 생성
+        var vertexBuffer = gl.createBuffer();
+        //2.bind 버퍼
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        //3.버퍼 data set
+        gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        var indexBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+        //4.unbind 버퍼
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+        gl.bindBuffer(gl.ARRAY_BUFFER,null);
+
+        /*************************************4. Renders the scene!****************************************/ 
+        //1. 배경 설정
+        gl.clearColor(0.0, 0.0, 0.0, 1.0);
+        gl.enable(gl.DEPTH_TEST);
+        gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        gl.viewport(0,0,canvas.width, canvas.height);
+
+        //2. 바인딩 / attr지정 / 활성화
+        gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
+        gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(prg.vertexPositionAttribute);
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+
+        //3. draw
+        gl.drawElements(gl.TRIANGLE_FAN, indices.length, gl.UNSIGNED_SHORT,0);
+        // gl.drawElements(gl.LINE_STRIP, indices.length, gl.UNSIGNED_SHORT,0);
+        // gl.drawArrays(gl.LINE_LOOP, 0, 4);
+    })();
+</script>
+</body>
+</html>

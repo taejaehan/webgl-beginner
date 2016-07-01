@@ -1,0 +1,468 @@
+<html>
+
+<head>
+<title>webgl han test 04</title>
+<meta http-equiv='content-type' content='text/html; charset=ISO-8859-1'>
+<script type='text/javascript' src='js/math/gl-matrix-min.js'></script>
+
+<!-- WEBGL Libraries //-->
+<!--해당 예제에서 사용하는 전역변수-->
+<script type='text/javascript' src='js/webgl/Globals.js'></script>
+<!--gl컨텍스트를 갖고 있는 것처럼 유틸리티 함수 모음이다-->
+<script type='text/javascript' src='js/webgl/Utils.js'></script>
+<!--셰이더 정의를 통해 프로그램을 생성한다(자바스크립트 변수(prg.*)와 프로그램 애트리뷰트, 유니폼을 매핑한다-->
+<script type='text/javascript' src='js/webgl/Program.js'></script>
+<!--랜더링할 오브젝트 리스트를 관리한다. 원격 오브젝트를 반환하기 위해 ajax/json 함수가 있다. 또한 로컬 오브젝트 추가가 가능하다-->
+<script type='text/javascript' src='js/webgl/Scene.js'></script>
+<!--세계공간에서의 축을 나타낸다. 씬에 추가디ㅗ면 원점이 어딘지 알 수 있다-->
+<script type='text/javascript' src='js/webgl/Axis.js'></script>
+<!--x축부터 z축까지 선을 그려 평면을 정의한다. 이 오브젝트는 풀로어가 어딘지 참조하기 위해 scene에 추가된다-->
+<script type='text/javascript' src='js/webgl/Floor.js'></script>
+<!--카메라 조작-->
+<script type='text/javascript' src='js/webgl/Camera.js'></script>
+<!--카메라를 캔버스에 연결. 여기서 마우스와 키보드 이벤트를 받아 카메라로 전달한다-->
+<script type='text/javascript' src='js/webgl/CameraInteractor.js'></script>
+<!--행렬 연산을 위한 함수와 행렬 스택을 위한 함수를 담고 있다(전역변환(카메라변환)중에 오브젝트가 개인적 로컬 변환지원)-->
+<script type='text/javascript' src='js/webgl/SceneTransforms.js'></script>
+<!--웹지엘 애플리케이션을 나타낸다. 여기에는 3개의 후킹함수가 정의되어 있다. 첫번째 후킹함수는 스테이지 설정에 관한 것이고, 두번째 후킹 함수는 스테이지를 로드하는 것이며, 세번째 후킹함수는 스테이지를 렌더링 하는 것이다. 이 후킹 함수는 웹페이지에 있는 함수와 연결된다-->
+<script type='text/javascript' src='js/webgl/WebGLApp.js'></script>
+<!-- Vertex Shader -->
+<script id="shader-vs" type="x-shader/x-vertex">
+
+attribute vec3 aVertexPosition;
+attribute vec3 aVertexNormal;
+attribute vec4 aVertexColor;
+
+uniform mat4 uMVMatrix;
+uniform mat4 uPMatrix;
+
+uniform mat4 uNMatrix;
+uniform vec3 uLightPosition;
+uniform vec4 uMaterialDiffuse; //object color
+
+uniform bool uWireframe;    //is object wireframe color
+uniform bool uPerVertexColor;   //is object vertect color
+// uniform bool uUpdateLight;
+uniform vec3 uTranslation;  //ball position
+uniform bool uTranslate;    //is ball translate
+
+varying vec3 vNormal;
+varying vec3 vLightRay;     //light direction
+varying vec3 vEyeVec;       //camera vector
+varying vec4 vFinalColor;   //ball final color
+
+void main(void) {
+    if (uWireframe) {
+        if (uPerVertexColor){
+            vFinalColor = aVertexColor;
+        }else{
+            vFinalColor = uMaterialDiffuse;
+        }
+    }
+
+    //Transformed vertex position
+    vec3 vecPosition = aVertexPosition; 
+    if (uTranslate){
+        vecPosition += uTranslation;
+    }
+
+    vec4 vertex = uMVMatrix * vec4(vecPosition, 1.0);
+
+    //Transformed normal position
+    vNormal = vec3(uNMatrix * vec4(aVertexNormal, 1.0));
+
+    //Transformed light position
+    vec4 light = vec4(uLightPosition,1.0);
+
+    // if(uUpdateLight){
+    //     light = uMVMatrix * vec4(uLightPosition,1.0);
+    //  }
+
+    //Light position
+    vLightRay = vertex.xyz-light.xyz;
+
+    //Vector Eye
+    vEyeVec = -vec3(vertex.xyz);
+
+    //Final vertex position
+    gl_Position = uPMatrix * vertex;
+
+}   
+</script>
+<!-- Fragment Shader -->
+<script id="shader-fs" type="x-shader/x-fragment">
+#ifdef GL_ES
+precision highp float;
+#endif
+
+uniform bool uWireframe;
+uniform vec4 uLightAmbient;
+uniform vec4 uLightDiffuse;
+uniform vec4 uLightSpecular;
+uniform vec4 uMaterialAmbient;
+uniform vec4 uMaterialDiffuse;
+uniform vec4 uMaterialSpecular;
+uniform float uShininess;       
+
+varying vec3 vNormal;
+varying vec3 vLightRay;
+varying vec3 vEyeVec;
+varying vec4 vFinalColor;
+
+void main(void)
+{
+    if(uWireframe){
+        gl_FragColor = vFinalColor;
+    }
+    else{
+        //
+        vec3 L = normalize(vLightRay);
+        vec3 N = normalize(vNormal);
+
+        //Lambert's cosine law
+        float lambertTerm = dot(N,-L);
+    
+        //Ambient Term 
+        //주변광 = 빛 주변광 속성 * 재질 주변광 속성
+        vec4 Ia = uLightAmbient * uMaterialAmbient;
+
+        //Diffuse Term
+        vec4 Id = vec4(0.0,0.0,0.0,1.0);
+
+        //Specular Term
+        vec4 Is = vec4(0.0,0.0,0.0,1.0);
+
+        if(lambertTerm > 0.0)
+        {   
+            //분산광 = 빛 분산광 속성 * 재질 분산광 속성 * 람베르트 계수
+            Id = uLightDiffuse * uMaterialDiffuse * lambertTerm; 
+            vec3 E = normalize(vEyeVec);
+            //N은 버텍스 법선 벡터이고, L은 란베르트 계수 계산을 사용했던 빛의 방향이다
+            vec3 R = reflect(L, N);
+            //E는 시점벡터(카메라벡터), R은 반사된 광원벡터, uShininess는 반사지수 또는 선명도
+            float specular = pow( max(dot(R, E), 0.0), uShininess);
+            //반사광 = 빛 반사광 속성 * 재질 반사광 속성 * 반사계수
+            Is = uLightSpecular * uMaterialSpecular * specular;
+        }
+
+        //Final color
+        vec4 finalColor = Ia + Id + Is;
+        finalColor.a = 1.0;
+        gl_FragColor = finalColor;
+    }
+
+}
+</script>
+
+<script id='code-js' type="text/javascript">
+
+var camera = null;
+var interactor = null;
+var transforms = null;
+
+var ball = [];
+var BALL_GRAVITY = 9.8;
+var NUM_BALLS = 50;
+var sceneTime = 0.0;
+
+function generatePosition(){
+    
+    var x = Math.floor(Math.random()*40);
+    var y = Math.floor(Math.random()*100)+50;
+    var z = Math.floor(Math.random()*40);
+    
+    var flagX = Math.floor(Math.random()*10);
+    var flagZ = Math.floor(Math.random()*10);
+    
+    // y = 0;
+    // z = 0;
+    // x = 0;
+    if (flagX >= 5) {x=-x;}
+    if (flagZ >= 5) {z=-z;}
+    return [x,y,z];
+}
+
+function BouncingBall(x,y,z){
+    this.H0 = y;    //초기 높이
+    this.V0 = 0;    //초기 속도
+    this.VF = Math.sqrt(2 * BALL_GRAVITY * this.H0); // 제곱 ( 2 * 중력 * 초기높이 )
+    this.HF = 0;    //높이 중력?
+    this.bouncing_time  = 0;   //바운스 시간  
+    this.position = [x,y,z];
+    this.BOUNCINESS = (Math.random())-0.3; //탄력도
+    this.color = [Math.random(), Math.random(), Math.random(),1.0];
+    // this.color = [0.5, 0.9, 0.2, 1.0];
+    this.color = [0.0, 0.0, 0.0, 1.0];
+    this.shininess = 0.1;
+}
+
+
+
+BouncingBall.prototype.update = function(time){
+    
+    // console.log('time : ' + time);
+    //update time
+    var t = time - this.bouncing_time;
+    
+    //update positioon
+    var h  = this.position[1]; // y-coordinate
+    //자유낙하 공식
+    //h = 초기위치 + (초기속도 *시간) - 0.5*중력*시간제곱;
+    h = this.H0 + (this.V0 * t) - (0.5 * BALL_GRAVITY * t * t);
+
+    if(time < 0.1){
+        // console.log('this.H0 : ' + this.H0);
+        // console.log('this.V0 : ' + this.V0);
+        // console.log('this.V0 : ' + this.V0);
+        // console.log('t : ' + t);
+        // console.log('0.5 * BALL_GRAVITY * t * t : ' + 0.5 * BALL_GRAVITY * t * t);
+        // console.log('h : ' + h);
+    }
+    
+
+    if (h <= 0){ //bounce
+        this.bouncing_time = time;
+        this.V0 = this.VF * this.BOUNCINESS;
+        this.HF = (this.V0 * this.V0) / (2 * BALL_GRAVITY);
+        this.VF = Math.sqrt(2*BALL_GRAVITY* this.HF);
+        this.H0 = 0;
+        this.shininess = 1000000.0;
+
+        // console.log('this.H0 : ' + this.H0);
+        // console.log('this.V0 : ' + this.V0);
+        // console.log('this.V0 : ' + this.V0);
+        // console.log('t : ' + t);
+        // console.log('0.5 * BALL_GRAVITY * t * t : ' + 0.5 * BALL_GRAVITY * t * t);
+        // console.log('h : ' + h);
+
+
+    }
+    else{
+        this.position[1] = h;
+        this.shininess = Math.floor(Math.random()*5) +0.1;
+    }
+}
+
+function configure(){
+    gl.clearColor(0.3,0.3,0.3, 1.0);
+    gl.clearColor(0.0,0.0,0.0, 1.0);
+    gl.clearDepth(100.0);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    
+    //Creates and sets up the camera location
+    camera = new Camera(CAMERA_ORBITING_TYPE);
+    camera.goHome([0,18,100]);
+    camera.setFocus([0.0,0.0,0.0]);
+    camera.hookRenderer = draw;
+    
+    //Creates and sets up the mouse and keyboard interactor
+    interactor = new CameraInteractor(camera, document.getElementById('canvas-element-id'));
+    
+    //Scene Transforms
+    transforms = new SceneTransforms(camera);
+   
+    //init transforms
+    transforms.init();
+    
+    //create program variable that maps the uniform uTranslation
+    prg.uTranslation   = gl.getUniformLocation(prg, "uTranslation");
+    gl.uniform3fv(prg.uTranslation, [0,0,0]);
+    
+    //create program variable that maps the uniform uTranslate
+    prg.uTranslate = gl.getUniformLocation(prg, "uTranslate");
+    gl.uniform1i(prg.uTranslate, false);
+    
+    for (var i=0;i<NUM_BALLS;i++){
+        var pos = generatePosition();
+        ball.push(new BouncingBall(pos[0],pos[1],pos[2]));
+    }
+}
+
+
+/**
+* Loads the scene
+*/
+function load(){
+    // Floor.build(80,2);
+    // Axis.build(82);
+    Scene.addObject(Floor);
+    Scene.loadObject('models/geometry/ball.json','ball');
+}
+
+function drawBall(ball, sphere){
+    gl.uniform3fv(prg.uTranslation, ball.position);
+    gl.uniform4fv(prg.uMaterialDiffuse, ball.color);
+    gl.uniform1f(prg.uShininess,ball.shininess);
+    gl.drawElements(gl.TRIANGLES, sphere.indices.length, gl.UNSIGNED_SHORT,0);
+    
+    
+}
+
+function drawBalls(object){
+    gl.uniform4fv(prg.uMaterialSpecular, object.specular);
+    gl.uniform4fv(prg.uMaterialAmbient, object.ambient);
+
+    
+    gl.uniform1i(prg.uWireframe,false);
+    gl.uniform1i(prg.uPerVertexColor, false);
+    gl.uniform1i(prg.uTranslate, true);
+
+    //Setting Attributes
+    gl.enableVertexAttribArray(prg.aVertexPosition);
+    gl.disableVertexAttribArray(prg.aVertexNormal);
+    gl.disableVertexAttribArray(prg.aVertexColor);
+    
+    //Setting Buffers
+    gl.bindBuffer(gl.ARRAY_BUFFER, object.vbo);
+    gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(prg.aVertexPosition);
+            
+    gl.bindBuffer(gl.ARRAY_BUFFER, object.nbo);
+    gl.vertexAttribPointer(prg.aVertexNormal, 3, gl.FLOAT, false, 0, 0);
+    gl.enableVertexAttribArray(prg.aVertexNormal);
+    
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.ibo);
+    
+    for(var j = 0; j < NUM_BALLS; j++){
+        drawBall(ball[j],object);
+    }
+    gl.bindBuffer(gl.ARRAY_BUFFER, null);
+    gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+}
+
+/**
+* invoked on every rendering cycle
+*/
+function draw() {
+    gl.viewport(0, 0, c_width, c_height);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+    transforms.updatePerspective();
+    
+    try{
+        // gl.uniform1i(prg.uUpdateLight,updateLightPosition);
+        // gl.uniform1i(prg.uUpdateLight,false);
+        
+        
+        for (var i = 0; i < Scene.objects.length; i++){
+            
+            var object = Scene.objects[i];
+            
+            transforms.calculateModelView();           
+            transforms.setMatrixUniforms();
+            
+            if (object.alias== 'ball'){
+                drawBalls(object);
+                continue;
+            }
+            
+            gl.uniform1i(prg.uTranslate, false);
+
+            //Setting uniforms
+            gl.uniform4fv(prg.uMaterialDiffuse, object.diffuse);
+            gl.uniform4fv(prg.uMaterialSpecular, object.specular);
+            gl.uniform4fv(prg.uMaterialAmbient, object.ambient);
+            
+            gl.uniform1i(prg.uWireframe,object.wireframe);
+            gl.uniform1i(prg.uPerVertexColor, object.perVertexColor);
+            
+            //Setting attributes
+            gl.enableVertexAttribArray(prg.aVertexPosition);
+            gl.disableVertexAttribArray(prg.aVertexNormal);
+            gl.disableVertexAttribArray(prg.aVertexColor);
+            
+            gl.bindBuffer(gl.ARRAY_BUFFER, object.vbo);
+            gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+            gl.enableVertexAttribArray(prg.aVertexPosition);
+            
+            if(!object.wireframe){
+                gl.bindBuffer(gl.ARRAY_BUFFER, object.nbo);
+                gl.vertexAttribPointer(prg.aVertexNormal, 3, gl.FLOAT, false, 0, 0);
+                gl.enableVertexAttribArray(prg.aVertexNormal);
+            }
+            
+            if (object.perVertexColor){
+                gl.bindBuffer(gl.ARRAY_BUFFER, object.cbo);
+                gl.vertexAttribPointer(prg.aVertexColor,4,gl.FLOAT, false, 0,0);
+                gl.enableVertexAttribArray(prg.aVertexColor);
+            }
+            
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, object.ibo);
+            
+            if (object.wireframe){
+                gl.drawElements(gl.LINES, object.indices.length, gl.UNSIGNED_SHORT,0);
+            }
+            else{
+                gl.drawElements(gl.TRIANGLES, object.indices.length, gl.UNSIGNED_SHORT,0);
+            }
+            gl.bindBuffer(gl.ARRAY_BUFFER, null);
+            gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+            
+        }
+    }
+    catch(err){
+        alert(err);
+        console.error(err.description);
+    }
+}
+
+var animationRate = 15; /* 15 ms */
+var elapsedTime = undefined;
+var initialTime = undefined;
+
+function animate(){
+    for (var i = 0; i<ball.length; i++){
+        ball[i].update(sceneTime);
+    }
+    sceneTime += 33/1000;   //simulation time
+    draw();
+}
+
+function onFrame() {
+    elapsedTime = (new Date).getTime() - initialTime;
+    if (elapsedTime < animationRate) { return; } //come back later
+
+    // 그냥 animate한다면 독립적으로 할 수 있으나, 하지만 다른 블로킹 이벤트 때문에 벌어지는 큰 딜레이가 있다면 드롭 프레임이 발 생할 수 있다. 다시 말해 다음에 이어지는 콜백함수로 인해 너무 큰 경과 시간이 발생하면 오브젝트의 위치가 지나간 중간 프레임을 무시하고 현재 위치로 갑자기 점플할 수 있다.
+    // animate();
+
+    var steps = Math.floor(elapsedTime / animationRate);
+    while(steps > 0){
+        animate();
+        steps -= 1;
+    }
+
+    initialTime = (new Date).getTime();
+}
+
+function startAnimation(){
+    initialTime = (new Date).getTime();
+    //두번째 자바스크립트 타이머(첫번째는 WebGLApp.js)를 사용함으로써 컴퓨터 하드웨어에 따른 렌더링 처리 속도에서 독립적이 된다. 자바스크립트는 완전한 멀티스레드 언어가 아니라서 같은 시간에 비동기 이벤트가 일어나는 경우 브라우저는 이벤트를 큐에 넣고 처리한다. 이벤트 큐 처리 메커니즘은 브라우저마다 다르다.
+    setInterval(onFrame,animationRate/1000); // animation rate
+}
+
+
+/**
+* Entry point. This function is invoked when the page is loaded
+*/
+var app = null;
+function runWebGLApp() {
+    app = new WebGLApp("canvas-element-id")
+    app.configureGLHook = configure;
+    app.loadSceneHook   = load;
+    app.drawSceneHook   = draw;
+    app.run();
+    
+    startAnimation();
+
+}
+</script>
+</head>
+
+<body onLoad='runWebGLApp()'>
+
+<canvas id='canvas-element-id' width='800' height='400'>
+Your browser does not support the HTML5 canvas element.
+</canvas>
+
+</body>
+</html>
