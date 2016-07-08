@@ -6,26 +6,31 @@
 <body>
 <!-- canavs -->
 <canvas id="webgl-canvas" style="border: none;" width="800" height="400"></canvas>
-<script type='text/javascript' src='js/gl-matrix-min.js'></script>
+<script type='text/javascript' src='js/math/gl-matrix-min.js'></script>
 <!-- Vertex Shader -->
 <script id="shader-vs" type="x-shader/x-vertex">
     //attribute : 버텍스 셰이더와 웹지엘 애플리케이션 간의 버텍스 데이터 연결이다. 베텍스 셰이더 내부에서만 사용한다
     //vec3 3개 요소를 갖는 실수형 벡터
+    //버퍼를 통해 JavaScript에서 vertexAttribPointer()를 통해 전달 받은 vertex 및 color 값을 저장(index 버퍼는 attribute 변수로 전달되지는 않음) vertex shader에서만 사용되며 읽기 전용 값
     attribute vec3 aVertexPosition;
     attribute vec3 aVertexColor;
 
-    //uniform : 오브젝트가 처리되는 동안 값이 변하지 않고 셰이더와 웹지엘 애플리케이션 간 연결을 형성한다.(광원/재) 유니폼은 버텍스와 프래그먼트 셰이더 양쪽 모두에 사용할 수 있다. 유니폼을 버텍스와 프래그먼트 사이에서 공유하려면 알맞게 선언해야 한다
+    //uniform : 오브젝트가 처리되는 동안 값이 변하지 않고 셰이더와 웹지엘 애플리케이션 간 연결을 형성한다.(광원/재질) 유니폼은 버텍스와 프래그먼트 셰이더 양쪽 모두에 사용할 수 있다. 유니폼을 버텍스와 프래그먼트 사이에서 공유하려면 알맞게 선언해야 한다
     //mat4 (4x4 실수형 행렬)
+    //JavaScript에서 uniformMatrix#fv()를 통해 전달 받은 값을 저장하며 주로 변형(이동, 회전, 스케일)을 계산하기 위한 벡터가 넘어옴 vertex shader, fragment shader 모두 사용되며 읽기 전용 값
     uniform mat4 uMVMatrix;
     uniform mat4 uPMatrix;
 
     //varying : 버텍스 셰이더와 프래그먼트 셰이더 간의 보간된 데이터를 연결한다 베어링은 버텍스 셰이더와 프래그먼트 셰이더에서 공유된다. 베어링의 선언은 버텍스와 프래그먼트 셰이더 사이에서 알맞게 선언한다
     //vec4 4개 요소를 갖는 실수형 벡터
+    //vertex shader에서 계산된 값을 fragment shader로 전달해 줄 때 사용
+    //vertex shader와 fragment shader에서 동일한 변수명으로 선언되어야 전달이 가능하다.
+    //vertex shader에서는 쓰기도 가능, fragment shader에서는 읽기 전용
     varying highp vec4 vColor;    
     void main(void) {
         // gl_Position = vec4(aVertexPosition, 1.0);
         // vec3 -> vec4 변환
-        gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
+        gl_Position = vec4(aVertexPosition, 1.0);
         vColor = vec4(aVertexColor, 1.0);
     }
 </script>
@@ -108,10 +113,10 @@
             0.5,-0.5,0.0,   //Vertex 2
             0.5,0.5,0.0     //Vertex 3
         ];   
-        var indices = [
-            0, 1, 2, // 0, 1, 2 이 되든 0, 2, 1 이 되든 2, 1, 0 이 되든 무관
-            3, 2, 0  // 0, 2, 3 이 되든 2, 3, 0 이 되든 3, 0, 2 이 되든 무관
-        ];
+        var indices = [     
+            0, 1, 2, // 0, 1, 2 이 되든 0, 2, 1 이 되든 2, 1, 0 이 되든 무관하지만 보통 반시계 방향으로 정의 
+            3, 0, 2  // 0, 2, 3 이 되든 2, 3, 0 이 되든 3, 0, 2 이 되든 무관하지만 보통 반시계 방향으로 정의 
+        ];  
         var colors = [
             1.0,  1.0,  1.0,  1.0,    // 흰색
             1.0,  0.0,  0.0,  1.0,    // 빨간색
@@ -127,9 +132,9 @@
         //3.버퍼 data set
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
 
-        var indexBuffer = gl.createBuffer();
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
-        gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
+        // var indexBuffer = gl.createBuffer();
+        // gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        // gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
 
         var squareVerticesColorBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesColorBuffer);
@@ -159,20 +164,21 @@
         gl.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
 
         //3. 바인딩 / attr지정 / 활성화
+        //bindBuffer는 상태변수 / 바인딩 버퍼는 언바인딩할 때까지는 계속 바인딩 상태로 유지된다. 버퍼 상태에 대한 정보는 반드시 바인딩한 버퍼에서만 사용할 수있다. 만일 다른 버퍼에 대한 정보를 알고 싶다면 해당 버퍼를 바인딩부터 해야한다
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(prg.vertexPositionAttribute);
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
 
-        
-        gl.enableVertexAttribArray(prg.vertexColorAttribute);
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesColorBuffer);
         gl.vertexAttribPointer(prg.vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(prg.vertexColorAttribute);
+       
+        
 
         //4. draw
-        gl.drawElements(gl.TRIANGLE_FAN, indices.length, gl.UNSIGNED_SHORT,0);
+        // gl.drawElements(gl.TRIANGLE_FAN, indices.length, gl.UNSIGNED_SHORT,0);
         // gl.drawElements(gl.LINE_STRIP, indices.length, gl.UNSIGNED_SHORT,0);
-        // gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
     })();
 </script>
 </body>

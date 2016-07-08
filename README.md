@@ -22,4 +22,4 @@ han_test_03.html - animate a object by main render
 
 han_test_04.html - animate lots of obejcts by independent render
 
-han_test_final.html - change animation by some event and moving object
+han_test_05.html - texturing video, change animation by some event and moving object

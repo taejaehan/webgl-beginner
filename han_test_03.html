@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <head>
 <title>webgl han test 03</title>
-<script type='text/javascript' src='js/gl-matrix-min.js'></script>
+<script type='text/javascript' src='js/math/gl-matrix-min.js'></script>
 <script type='text/javascript' src='js/utils.js'></script>
 </head>
 
@@ -50,6 +50,7 @@ Your browser does not support the HTML5 canvas element.
 </script>
 <!-- Fragment Shader -->
 <script id="shader-fs" type="x-shader/x-fragment">
+    /*셰이더 정밀도 정의(ESSL표준)*/
     #ifdef GL_ES
     precision highp float;
     #endif

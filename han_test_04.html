@@ -37,7 +37,7 @@ uniform mat4 uMVMatrix;
 uniform mat4 uPMatrix;
 
 uniform mat4 uNMatrix;
-uniform vec3 uLightPosition;
+uniform vec3 uLightPosition;    //
 uniform vec4 uMaterialDiffuse; //object color
 
 uniform bool uWireframe;    //is object wireframe color
@@ -234,8 +234,6 @@ BouncingBall.prototype.update = function(time){
         // console.log('t : ' + t);
         // console.log('0.5 * BALL_GRAVITY * t * t : ' + 0.5 * BALL_GRAVITY * t * t);
         // console.log('h : ' + h);
-
-
     }
     else{
         this.position[1] = h;
@@ -284,8 +282,8 @@ function configure(){
 * Loads the scene
 */
 function load(){
-    // Floor.build(80,2);
-    // Axis.build(82);
+    Floor.build(80,2);
+    Axis.build(82);
     Scene.addObject(Floor);
     Scene.loadObject('models/geometry/ball.json','ball');
 }

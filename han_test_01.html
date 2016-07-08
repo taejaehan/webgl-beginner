@@ -7,6 +7,7 @@
 <!-- canavs -->
 <canvas id="webgl-canvas" style="border: none;" width="800" height="400"></canvas>
 
+<!-- ESSL 오픈지엘 ES 셰이딩 언어-->
 <!-- Vertex Shader -->
 <script id="shader-vs" type="x-shader/x-vertex">
     //attribute : 버텍스 셰이더와 웹지엘 애플리케이션 간의 버텍스 데이터 연결이다. 베텍스 셰이더 내부에서만 사용한다
@@ -16,12 +17,15 @@
         gl_Position = vec4(aVertexPosition, 1.0);
     }
 </script>
+
 <!-- Fragment Shader -->
 <script id="shader-fs" type="x-shader/x-fragment">
     void main(void) {
-       gl_FragColor = vec4(0.5, 0.9, 0.2, 1.0); //Green
+       gl_FragColor = vec4(0.5, 0.9, 0.2, 1.0); //rgba //Green
     }
 </script>
+
+
 <!-- code -->
 <script>
     (function() {
@@ -33,6 +37,7 @@
             gl = canvas.getContext("experimental-webgl");
         } catch (e) {
             msg = "Error creating WebGL Context!: " + e.toString();
+            alert(msg);
         };
         
         /*****************************2. Initializes the program (shaders)********************************/
@@ -63,8 +68,8 @@
             // 컴파일된 shader 반환
             return shader;
         };
-        var fgShader = getShader(gl, 'shader-fs');
         var vxShader = getShader(gl, 'shader-vs');
+        var fgShader = getShader(gl, 'shader-fs');
 
         //2. 새로운 프로그램 생성
         prg = gl.createProgram();
@@ -87,23 +92,24 @@
             -0.5,0.5,0.0,   //Vertex 0
             -0.5,-0.5,0.0,  //Vertex 1
             0.5,-0.5,0.0,   //Vertex 2
-            0.5,0.5,0.0     //Vertex 4
+            0.5,0.5,0.0,     //Vertex 3
         ];   
-        var indices = [
-            0, 1, 2, // 0, 1, 2 이 되든 0, 2, 1 이 되든 2, 1, 0 이 되든 무관
-            3, 2, 0  // 0, 2, 3 이 되든 2, 3, 0 이 되든 3, 0, 2 이 되든 무관
-        ];
+        var indices = [     
+            0, 1, 2, // 0, 1, 2 이 되든 0, 2, 1 이 되든 2, 1, 0 이 되든 무관하지만 보통 반시계 방향으로 정의 
+            3, 0, 2,  // 0, 2, 3 이 되든 2, 3, 0 이 되든 3, 0, 2 이 되든 무관하지만 보통 반시계 방향으로 정의 
+        ];  
         //1.버퍼 생성
         var vertexBuffer = gl.createBuffer();
         //2.bind 버퍼
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         //3.버퍼 data set
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
+        //4.unbind 버퍼
+        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
+
         var indexBuffer = gl.createBuffer();
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
         gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(indices), gl.STATIC_DRAW);
-        //4.unbind 버퍼
-        gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
         gl.bindBuffer(gl.ARRAY_BUFFER,null);
 
         /*************************************4. Renders the scene!****************************************/ 
@@ -115,9 +121,15 @@
 
         //2. 바인딩 / attr지정 / 활성화
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(prg.vertexPositionAttribute);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        //gl.vertexAttribPointer(index, size, type, normalized, stride, offset);
+        //size : vertSize는 2차원 좌표계를 사용하면 2, 3차원 좌표계를 사용하면 3이다.
+        //type : vertexBuffer안에 있는 배열 원소의 데이터 타입(gl.FLOAT 등)
+        //normalized : boolean은 넘겨지는 데이터가 자동으로 정규화 되어야 하는 지 여부. 고정소수점 데이터의 정규화 여부. 부호 있는 숫자는 [-1, 1] 사이 값으로 부호 없는 숫자는 [0, 1] 사이 값으로 정규화
+        //stride : 연속된 generic vertex attribute 사이의 byte offset
+        //offset : 배열에 있는 첫번째 generic vertex attribute의 첫번째 컴포넌트에 대한 인덱스 값
+        gl.vertexAttribPointer(prg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+        gl.enableVertexAttribArray(prg.vertexPositionAttribute);
 
         //3. draw
         gl.drawElements(gl.TRIANGLE_FAN, indices.length, gl.UNSIGNED_SHORT,0);
