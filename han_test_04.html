@@ -14,7 +14,7 @@
 <script type='text/javascript' src='js/webgl/Program.js'></script>
 <!--랜더링할 오브젝트 리스트를 관리한다. 원격 오브젝트를 반환하기 위해 ajax/json 함수가 있다. 또한 로컬 오브젝트 추가가 가능하다-->
 <script type='text/javascript' src='js/webgl/Scene.js'></script>
-<!--세계공간에서의 축을 나타낸다. 씬에 추가디ㅗ면 원점이 어딘지 알 수 있다-->
+<!--세계공간에서의 축을 나타낸다. 씬에 추가되면 원점이 어딘지 알 수 있다-->
 <script type='text/javascript' src='js/webgl/Axis.js'></script>
 <!--x축부터 z축까지 선을 그려 평면을 정의한다. 이 오브젝트는 풀로어가 어딘지 참조하기 위해 scene에 추가된다-->
 <script type='text/javascript' src='js/webgl/Floor.js'></script>
@@ -210,14 +210,14 @@ BouncingBall.prototype.update = function(time){
     //h = 초기위치 + (초기속도 *시간) - 0.5*중력*시간제곱;
     h = this.H0 + (this.V0 * t) - (0.5 * BALL_GRAVITY * t * t);
 
-    if(time < 0.1){
-        // console.log('this.H0 : ' + this.H0);
-        // console.log('this.V0 : ' + this.V0);
-        // console.log('this.V0 : ' + this.V0);
-        // console.log('t : ' + t);
-        // console.log('0.5 * BALL_GRAVITY * t * t : ' + 0.5 * BALL_GRAVITY * t * t);
-        // console.log('h : ' + h);
-    }
+    // if(time < 0.1){
+    //     // console.log('this.H0 : ' + this.H0);
+    //     // console.log('this.V0 : ' + this.V0);
+    //     // console.log('this.V0 : ' + this.V0);
+    //     // console.log('t : ' + t);
+    //     // console.log('0.5 * BALL_GRAVITY * t * t : ' + 0.5 * BALL_GRAVITY * t * t);
+    //     // console.log('h : ' + h);
+    // }
     
 
     if (h <= 0){ //bounce
@@ -293,8 +293,7 @@ function drawBall(ball, sphere){
     gl.uniform4fv(prg.uMaterialDiffuse, ball.color);
     gl.uniform1f(prg.uShininess,ball.shininess);
     gl.drawElements(gl.TRIANGLES, sphere.indices.length, gl.UNSIGNED_SHORT,0);
-    
-    
+
 }
 
 function drawBalls(object){

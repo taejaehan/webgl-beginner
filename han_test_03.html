@@ -1,6 +1,7 @@
 <!DOCTYPE html>
 <head>
 <title>webgl han test 03</title>
+<!--향룔울 처리하기위한 library-->
 <script type='text/javascript' src='js/math/gl-matrix-min.js'></script>
 <script type='text/javascript' src='js/utils.js'></script>
 </head>
@@ -11,13 +12,25 @@ Your browser does not support the HTML5 canvas element.
 </canvas>
 <!-- Vertex Shader -->
 <script id="shader-vs" type="x-shader/x-vertex">
-    attribute vec3 aVertexPosition;
-    attribute vec3 aVertexNormal;
 
-    uniform mat4 uMVMatrix;
-    uniform mat4 uPMatrix;
-    uniform mat4 uNMatrix;
+    //attribute : 버텍스 셰이더와 웹지엘 애플리케이션 간의 버텍스 데이터 연결이다. 베텍스 셰이더 내부에서만 사용한다
+    //vec3 3개 요소를 갖는 실수형 벡터
+    //버퍼를 통해 JavaScript에서 vertexAttribPointer()를 통해 전달 받은 vertex 및 color 값을 저장(index 버퍼는 attribute 변수로 전달되지는 않음) vertex shader에서만 사용되며 읽기 전용 값
+    attribute vec3 aVertexPosition; //position of vertext
+    attribute vec3 aVertexNormal;   //each vertext normal
 
+    //uniform : 오브젝트가 처리되는 동안 값이 변하지 않고 셰이더와 웹지엘 애플리케이션 간 연결을 형성한다.(광원/재질) 유니폼은 버텍스와 프래그먼트 셰이더 양쪽 모두에 사용할 수 있다. 유니폼을 버텍스와 프래그먼트 사이에서 공유하려면 알맞게 선언해야 한다
+    //mat4 (4x4 실수형 행렬)
+    //JavaScript에서 uniformMatrix#fv()를 통해 전달 받은 값을 저장하며 주로 변형(이동, 회전, 스케일)을 계산하기 위한 벡터가 넘어옴 vertex shader, fragment shader 모두 사용되며 읽기 전용 값
+    uniform mat4 uMVMatrix; //modelview matrix
+    uniform mat4 uPMatrix;  //perspective matrix
+    uniform mat4 uNMatrix;  //normal matrix
+
+    //varying : 버텍스 셰이더와 프래그먼트 셰이더 간의 보간된 데이터를 연결한다 베어링은 버텍스 셰이더와 프래그먼트 셰이더에서 공유된다. 베어링의 선언은 버텍스와 프래그먼트 셰이더 사이에서 알맞게 선언한다
+    //vec4 4개 요소를 갖는 실수형 벡터
+    //vertex shader에서 계산된 값을 fragment shader로 전달해 줄 때 사용
+    //vertex shader와 fragment shader에서 동일한 변수명으로 선언되어야 전달이 가능하다.
+    //vertex shader에서는 쓰기도 가능, fragment shader에서는 읽기 전용
     uniform vec3 uLightDirection;   //light direction
     uniform vec4 uLightDiffuse;     //light color
     uniform vec4 uMaterialDiffuse;  //object color
@@ -70,6 +83,7 @@ Your browser does not support the HTML5 canvas element.
     var c_width = 0; // Variable to store the width of the canvas
     var c_height = 0; // Variable to store the height of the canvas
 
+    //mat4.create() m 행렬 생성
     var mvMatrix = mat4.create(); // The Model-View matrix
     var pMatrix = mat4.create(); // The projection matrix
 
@@ -115,6 +129,7 @@ Your browser does not support the HTML5 canvas element.
         prg.aVertexPosition = gl.getAttribLocation(prg, "aVertexPosition");
         prg.aVertexNormal = gl.getAttribLocation(prg, "aVertexNormal");
 
+        //getUniformLocation : uniform 변수의 값을 반환한다
         prg.uPMatrix = gl.getUniformLocation(prg, "uPMatrix");
         prg.uMVMatrix = gl.getUniformLocation(prg, "uMVMatrix");
         prg.uNMatrix = gl.getUniformLocation(prg, "uNMatrix");
@@ -126,6 +141,8 @@ Your browser does not support the HTML5 canvas element.
     }
 
     function initLights() {
+        // uniformMatrix[1234][fi]v : uniform 변수의 값을 1-4 실수형 혹은 정수형 값의 배열로 설정한다
+        // gl.uniform4f( index, x, y, z, w )
         gl.uniform3fv(prg.uLightDirection, [ 0.0, -1.0, -1.0 ]);
         gl.uniform4fv(prg.uLightDiffuse, [ 1.0, 1.0, 1.0, 1.0 ]);
         gl.uniform4fv(prg.uMaterialDiffuse, [ 0.5, 0.8, 0.1, 1.0 ]);
@@ -184,23 +201,34 @@ Your browser does not support the HTML5 canvas element.
      * Main rendering function. Called every 500ms according to WebGLStart function (see below)
      */
     function drawScene() {
+
+        //1. 배경 설정
         gl.clearColor(0.3, 0.3, 0.3, 1.0);
         gl.clearDepth(100.0);
         gl.enable(gl.DEPTH_TEST);
         gl.depthFunc(gl.LEQUAL);
-        gl.viewport(0, 0, c_width, c_height);
+        gl.viewport(0,0,c_width, c_height);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
 
+        //2. 시점을 45도로 종횡비를 캔버스 크기로 설정, 카메라로부터 0.1에서 10000단위 사이에 오브젝트만 랜더링
         mat4.perspective(45, c_width / c_height, 0.1, 10000.0, pMatrix);
-
-        mat4.identity(mvMatrix);
-        mat4.translate(mvMatrix, [ 0.0, 0.0, -5.0 ]); //Sets the camera to a reasonable distance to view the part
+        //mvMatrix을 행렬 계수 4인 단위 행렬로 설정
+        mat4.identity(mvMatrix);    
+        mat4.translate(mvMatrix, [0.0, 0.0, -5.0]); //Sets the camera to a reasonable distance to view the part
+        //rotate(m,r,a) m행렬을 a(x,y,z)축 r각도로 회전
         mat4.rotate(mvMatrix,angle*Math.PI/180, [0,1,1]);
-        gl.uniformMatrix4fv(prg.uMVMatrix, false, mvMatrix);
-        gl.uniformMatrix4fv(prg.uPMatrix, false, pMatrix);
 
+        // console.log('prg.pMatrixUniform : ' + prg.pMatrixUniform);
+        // uniformMatrix[234]fv(ref,transpose,matrix)
+        // gl.uniformMatrix4fv( index, 3, transpose, mat );
+        gl.uniformMatrix4fv(prg.uPMatrix, false, pMatrix);
+        gl.uniformMatrix4fv(prg.uMVMatrix, false, mvMatrix);
+
+        //mvMatrix 행렬을 nMatrix 행렬에 복사
         mat4.set(mvMatrix, nMatrix);
+        //nMatrix의 역행렬
         mat4.inverse(nMatrix);
+        //행렬 nMatrix 전치
         mat4.transpose(nMatrix);
 
         gl.uniformMatrix4fv(prg.uNMatrix, false, nMatrix);

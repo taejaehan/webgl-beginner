@@ -80,6 +80,7 @@ void main(void) {
 
     if(uTranslate){
         gl_Position = uPMatrix * vertex; 
+        // gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }else{
         gl_Position = uPMatrix * uMVMatrix * vec4(aVertexPosition, 1.0);
     }
@@ -149,6 +150,7 @@ void main(void)
        
         if (uUseTextures){
             gl_FragColor =  finalColor * texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
+            // gl_FragColor =  vFinalColor * texture2D(uSampler, vec2(vTextureCoord.s, vTextureCoord.t));
         }
         else{
             gl_FragColor = finalColor;
@@ -194,6 +196,13 @@ function addHit(ob){
     console.log('addhit');
     for (var i = 0; i<ball.length; i++){
         ball[i].currentposition = [ball[i].position[0],ball[i].position[1],ball[i].position[2]];
+        // ball[i].downStart = false;
+        // ball[i].position = [ball[i].originposition[0],ball[i].originposition[1],ball[i].originposition[2]];
+        // ball[i].is = 0;
+        // ball[i].H0 = ball[i].position[1];
+        // ball[i].VF = Math.sqrt(2 * BALL_GRAVITY * ball[i].H0);
+        // ball[i].sceneTime = 0;
+        // ball[i].bouncing_time = 0;
     }
     clickStart = true;
     clicking = true;
@@ -213,6 +222,7 @@ function removeHit(ob){
 function downBalls(){
     for (var i = 0; i<ball.length; i++){
         ball[i].sceneTime = 0.0;
+        // ball[i].originposition = [ball[i].position[0],ball[i].position[1],ball[i].position[2]];
         ball[i].is = 0;
         ball[i].downStart = true;
         ball[i].H0 = ball[i].position[1];
@@ -242,6 +252,9 @@ function processHits(hits){
         names += ob.alias + ' ';
     }
     render();
+
+    
+    // $('#selected-id').html('You picked : ' + names);
 }
 
 function movePickedObjects(hits,interactor,dx,dy){
@@ -284,14 +297,8 @@ var position = [];
 var is = 0;
 var xPos = 0.1;
 
-
-var ROTATE_AREA = [1,9,1];
-var rotate_distance = 5;
-
 var DOWN_AREA = [1,9,1];
-var down_distance = 1;
 
-var FULLO_OF_BOX = false;
 function generatePosition(){
     
     var x = Math.floor(Math.random()*40)+10;
@@ -307,6 +314,19 @@ function generatePosition(){
     return [x,y,z];
 }
 
+function pastelColor(r,g,b){
+    var red = Math.random();
+    var green = Math.random();
+    var blue = Math.random();
+
+    // mix the color
+    red = (red + r) / 2;
+    green = (green + g) / 2;
+    blue = (blue + b) / 2;
+
+    // Color color = new Color(red, green, blue);
+    return [red, green, blue, 1.0];
+}
 function BouncingBall(x,y,z){
     this.H0 = y;
     this.V0 = 0;
@@ -318,11 +338,13 @@ function BouncingBall(x,y,z){
     this.BOUNCINESS = (Math.random()+0.2);
     this.color = [Math.random()+0.4, Math.random()+0.4, Math.random()+0.4,1.0];
     // this.color = [0.0, 0.0, 0.0,1.0];
+    // this.color = pastelColor(Math.random(),Math.random(),Math.random())
     this.downStart = false;
     this.sceneTime = 0.0;
     this.is = 0;
     this.downSpeedX = (Math.random())-0.5;
     this.downSpeedZ = (Math.random());
+
 }
 
 
@@ -346,36 +368,32 @@ BouncingBall.prototype.update = function(time){
     var Y1 = FINAL_POSITION[1];
     var Z1 = FINAL_POSITION[2];
     
-
-    DOWN_AREA[0] = Math.abs(FINAL_POSITION[0]) + down_distance;
-    DOWN_AREA[1] = Math.abs(FINAL_POSITION[1]) - down_distance;
-    DOWN_AREA[2] = Math.abs(FINAL_POSITION[2]) + down_distance;
-
-    ROTATE_AREA[0] = Math.abs(FINAL_POSITION[0]) + rotate_distance;
-    ROTATE_AREA[1] = Math.abs(FINAL_POSITION[1]) - rotate_distance;
-    ROTATE_AREA[2] = Math.abs(FINAL_POSITION[2]) + rotate_distance;
+    DOWN_AREA[0] = Math.abs(FINAL_POSITION[0]) + 1;
+    DOWN_AREA[1] = Math.abs(FINAL_POSITION[1]) - 1;
+    DOWN_AREA[2] = Math.abs(FINAL_POSITION[2]) + 1;
 
     var dX = (X1 - X0)/ISTEPS;
     var dY = (Y1 - Y0)/ISTEPS;
     var dZ = (Z1 - Z0)/ISTEPS;
     if(this.is < ISTEPS){
         if(clickStart){
-            FULLO_OF_BOX = false;
+
             //z축이 50보다 크면 다시 원점으로 돌아감
             if(this.position[2] > 80 || Math.abs(this.position[0]) > 80){
                 this.downStart = false;
-                
+                this.position = [this.originposition[0],this.originposition[1],this.originposition[2]];
+                this.is = 0;
                 this.H0 = this.position[1];
                 this.VF = Math.sqrt(2 * BALL_GRAVITY * this.H0);
                 this.sceneTime = 0;
                 this.bouncing_time = 0;
-
-                this.position = [this.originposition[0],this.originposition[1],this.originposition[2]];
                 this.is = ISTEPS;
-                // this.position = [ROTATE_AREA[0],ROTATE_AREA[1],ROTATE_AREA[2]];
-                // this.is = 0;
 
-                FULLO_OF_BOX = true;
+                // FINAL_POSITION = [FINAL_POSITION[0]+5,FINAL_POSITION[1]+5,FINAL_POSITION[2]+5];
+                // setTimeout(function(){
+                //     this.is = 0;
+                // },1000)
+                // gl.uniform1i(Program.uWireframe,true);
             }
             //DOWN_AREA로 가면 아래로 bounce start
             if(!this.downStart && Math.abs(this.position[0]) <= DOWN_AREA[0] 
@@ -386,6 +404,7 @@ BouncingBall.prototype.update = function(time){
                 this.VF = Math.sqrt(2 * BALL_GRAVITY * this.H0);
                 this.position = [this.position[0],this.position[1],this.position[2]];
                 this.sceneTime = 0;
+
             };
 
             if(clickdone && this.downStart){
@@ -417,18 +436,17 @@ BouncingBall.prototype.update = function(time){
                     this.position[2] = this.position[2] + this.downSpeedZ;
                 }
                 this.is = 0;
-                
             }else{
                 this.position[0] = X0+(dX*this.is);
                 this.position[1] = Y0+(dY*this.is);
                 this.position[2] = Z0+(dZ*this.is);
                 this.is++;
-                
             }
             // is += 0.01;
         }
     }else{
         this.is = ISTEPS;
+        // app.refresh();
     }
 
 }
@@ -453,6 +471,7 @@ BouncingBall.prototype.down = function(time){
     }
     else{
         this.position[1] = h;
+        // this.position[1] = this.position[1] + xPos;
     }
 }
 
@@ -636,8 +655,8 @@ function configure(){
 
     //set light defalts
     gl.uniform3fv(Program.uLightPosition,   [0,5,20]);
-    gl.uniform4fv(Program.uLightAmbient,    [0.0,0.0,0.0,0.2]);
-    gl.uniform4fv(Program.uLightAmbient,    [0.2,0.2,0.2,0.2]);
+    gl.uniform4fv(Program.uLightAmbient,    [0.3,0.3,0.3,0.2]);
+    // gl.uniform4fv(Program.uLightDiffuse,    [1.0,1.0,1.0,1.0]);
     gl.uniform4fv(Program.uLightDiffuse,    [1.0,1.0,1.0,1.0]);
     gl.uniform1f(Program.uAlpha, 1.0);
 
@@ -665,7 +684,7 @@ function load(){
             position:FINAL_POSITION,
             // scale:[20.0,20.0,20.0],     
             scale:[15.0,15.0,15.0],     
-            ambient:[1.0,1.0,1.0,1.0],
+            ambient:[0.4,0.4,0.4,1.0],
             diffuse:[0.9,0.9,0.9,1.0]
         });
 }
@@ -703,6 +722,14 @@ function draw() {
             transforms.calculateModelView();           
             //push 로 행렬 스택으로 저장
             transforms.push();
+
+            //ball
+            // transforms.setMatrixUniforms();
+            // if (object.alias == 'ball'){
+            //     drawBalls(object);
+            //     continue;
+            // }
+
             gl.uniform1i(Program.uTranslate, false);
 
             //floor가 아니라면 
@@ -712,9 +739,6 @@ function draw() {
                 mat4.scale(transforms.mvMatrix, object.scale);
                 if(object.alias == 'cube'){
                     mat4.rotate(transforms.mvMatrix, angle * Math.PI/90, [0,1,1]);
-                    // if(FULLO_OF_BOX){
-                    //     object.scale = [5,5,5,1.0];
-                    // }
                 }
             }
             //쌓인 스택 변환
@@ -774,6 +798,14 @@ function draw() {
                     gl.bindTexture(gl.TEXTURE_2D, texture);
                     //현재 바인딩된 텍스처를 샘플러 유니폼에 지정
                     gl.uniform1i(Program.uSampler, 0); 
+                   
+                    // gl.enableVertexAttribArray(Program.aVertexTextureCoords);
+                    // gl.uniform1i(Program.uUseTextures, true);
+                    // gl.bindBuffer(gl.ARRAY_BUFFER, object.tbo);
+                    // gl.vertexAttribPointer(Program.aVertexTextureCoords, 2, gl.FLOAT, false, 0, 0);
+                    // gl.activeTexture(gl.TEXTURE0);
+                    // gl.bindTexture(gl.TEXTURE_2D, object.texture.tex);
+                    // gl.uniform1i(Program.uSampler, 0);
                 }
             }
             else{
@@ -820,6 +852,11 @@ function runWebGLApp() {
      //draw와 독립적인 animation
     startAnimation();
 
+    // setTimeout(function(){
+    //     //draw와 독립적인 animation
+    //     startAnimation();
+    // },5000);
+    
 }
 </script>
 </head>
@@ -827,7 +864,7 @@ function runWebGLApp() {
 <body onLoad='runWebGLApp()' >
 <div id='contents' >
 <div id='canvasContainer' >
-<canvas id='canvas-element-id' width='500' height='1400'>
+<canvas id='canvas-element-id' width='500' height='1000'>
 Your browser does not support the HTML5 canvas element.
 </canvas>
 </div>

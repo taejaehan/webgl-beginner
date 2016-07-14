@@ -5,23 +5,55 @@
 </head>
 <body>
 <!-- canavs -->
-<canvas id="webgl-canvas" style="border: none;" width="800" height="400"></canvas>
+<canvas id="webgl-canvas" style="border: none;" width="400" height="400"></canvas>
 
-<!-- ESSL 오픈지엘 ES 셰이딩 언어-->
+<!-- ESSL 오픈지엘 ES 셰이딩 언어(GLSL의 일부분)-->
 <!-- Vertex Shader -->
+<!--
+type에는 text/javascript가 아닌 임의의 값을 주면 됨.
+javascript로 해석되지 않도록 하는 것이 목적
+-->
 <script id="shader-vs" type="x-shader/x-vertex">
     //attribute : 버텍스 셰이더와 웹지엘 애플리케이션 간의 버텍스 데이터 연결이다. 베텍스 셰이더 내부에서만 사용한다
     //vec3 3개 요소를 갖는 실수형 벡터
     attribute vec3 aVertexPosition;
     void main(void) {
+        //버텍스 하나 마다 실행되는 버텍스 셰이더 실행부
+        //버퍼에 있는 배열 데이터는 gl.vertexAttribPointer()의 파라미터에 있는 정보를 기준으로 여러 개의 버텍스로 분리되고,
+        //여러 개의 버텍스는 여러 개의 코어에서 이 main() 함수에 의해 한 번에 병렬 처리된다.
         gl_Position = vec4(aVertexPosition, 1.0);
+        // vec4() : 네 개의 원소를 파라미터로 받아서 4행 벡터를 반환하는 함수
+        // aVertexPosition : 한 개의 버텍스를 나타낸다.
+        // 1.0 : 버텍스는 점 이므로 1.0(동차좌표계 내용 참고)
+        // gl_Position : 버텍스 셰이더의 내장 변수. 동차좌표계를 사용하므로 vec4 타입만 받는다.
+        // 별도의 return 문 없이도 gl_Position에 할당된 값이
+        //     파이프라인 상에서 버텍스 셰이더의 다음 단계(primitive 조립)의 입력값으로 전달된다.
+        // 이 예제에서는 단순히 버텍스 하나를 그대로 gl_Position에 할당할 뿐이지만,
+        //     일반적인 경우 버텍스에 여러가지 변환 연산을 적용한 후에 gl_Position에 값을 할당한다.
+        
+
+        // gl_PointSize = 10.0;
     }
 </script>
 
 <!-- Fragment Shader -->
 <script id="shader-fs" type="x-shader/x-fragment">
+/*셰이더 정밀도 정의(ESSL표준)*/
+//highp : 정밀도 수준(highp | mediump | lowp) 
+#ifdef GL_ES
+precision highp float;
+#endif
+
     void main(void) {
-       gl_FragColor = vec4(0.5, 0.9, 0.2, 1.0); //rgba //Green
+        // 프래그먼트 하나마다 실행되는 프래그먼트 셰이더 실행부
+        //     프래그먼트 셰이더는 파이프라인 상에서 래스터라이징의 바로 다음 단계에 있으며,
+        //     래스터라이징의 결과물인 프래그먼트 하나하나마다 이 main() 함수가 실행되는데,
+        //     여러 개의 코어에서 이 main() 함수가 각기 다른 프래그먼트 정보를 기준으로 한 번에 병렬 실행된다.
+        gl_FragColor = vec4(0.5, 0.9, 0.2, 1.0); //rgba //Green
+        // 1.0, 1.0, 1.0, 1.0 : r, g, b, a 값
+        // gl_FragColor : 프래그먼트셰이더의 내장 변수. rgba 값을 사용하므로 vec4 타입만 받는다.
+        // 별도의 return 문 없이도 gl_FragColor에 할당된 값이
+        //     파이프라인 상에서 프래그먼트 셰이더의 다음 단계(가위 테스트)의 입력값으로 전달된다.
     }
 </script>
 
@@ -31,6 +63,7 @@
     (function() {
         var canvas, gl, prg, shaderProgram;
 
+        // WebGL 컨텍스트 생성
         /*************************************1. canvas getContext****************************************/
         canvas = document.getElementById("webgl-canvas");
         try {
@@ -43,24 +76,30 @@
         /*****************************2. Initializes the program (shaders)********************************/
         //1. getShader(create sharder, set shader source, compile shader)
         function  getShader(gl, id) {
+            // 버텍스 셰이더 소스를 문자열로 담아온다.
             var shaderScript = document.getElementById(id),
                 shader;
             if (!shaderScript) {
                 return null;
             }
+
             //1-1 create sharder
+            // 버텍스 셰이더를 담을 그릇을 GPU한테 받아온다.
             if (shaderScript.type == "x-shader/x-fragment") {
                 shader = gl.createShader(gl.FRAGMENT_SHADER);
-            } else if (shaderScript.type == "x-shader/x-vertex") {
+    } else if (shaderScript.type == "x-shader/x-vertex") {
                 shader = gl.createShader(gl.VERTEX_SHADER);
             } else {
                 return null;
             }
             //1-2 set shader source
+            // vertexShader라는 그릇에 vertexShaderSource를 담아서 GPU에 보내고
             gl.shaderSource(shader, shaderScript.textContent);
             //1-3 compile shader
+            // GPU에게 vertexShader를 컴파일하도록 시킨다.
             gl.compileShader(shader);
             //Shader 컴파일 성공 확인
+            // 컴파일이 제대로 되었는지도 GPU에게 시켜서 확인
             if (!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
                 alert(gl.getShaderInfoLog(shader));
                 return null;
@@ -85,24 +124,31 @@
         //6.성공적으로 링크됐다면 GPU에 인스톨
         gl.useProgram(prg);
         //7.프로그램 애트리뷰트와 유니폼을 변수에 매핑
-        prg.vertexPositionAttribute = gl.getAttribLocation(prg, 'aVertexPosition');
+        // prg.vertexPositionAttribute = gl.getAttribLocation(prg, 'aVertexPosition');
 
         /*****************3. Initializes the buffers that we are going to use to draw ********************/
+        // 삼각형의 버텍스 정보(x, y, z 좌표값)
+        // 좌표값은 WebGL이 표시되는 영역의 중심을 원점으로 -1.0 ~ 1.0 사이의 값을 쓴다.
+        // 어떤 값을 -1.0 ~ 1.0 사이의 값으로 환산하여 표시하는 것을 정규화라고 한다.
         var vertices =  [
             -0.5,0.5,0.0,   //Vertex 0
             -0.5,-0.5,0.0,  //Vertex 1
             0.5,-0.5,0.0,   //Vertex 2
-            0.5,0.5,0.0,     //Vertex 3
+            0.5,0.5,0.0     //Vertex 3
         ];   
         var indices = [     
             0, 1, 2, // 0, 1, 2 이 되든 0, 2, 1 이 되든 2, 1, 0 이 되든 무관하지만 보통 반시계 방향으로 정의 
             3, 0, 2,  // 0, 2, 3 이 되든 2, 3, 0 이 되든 3, 0, 2 이 되든 무관하지만 보통 반시계 방향으로 정의 
         ];  
         //1.버퍼 생성
+        // 버퍼를 담을 그릇을 GPU한테 얻어온다.
         var vertexBuffer = gl.createBuffer();
         //2.bind 버퍼
+        // GPU 메모리 내에 있는 gl.ARRAY_BUFFER라는 key에 vertexBuffer를 바인딩하도록 GPU에게 시킨다.
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         //3.버퍼 data set
+        // GPU 메모리 내에 있는 gl.ARRAY_BUFFER라는 key에 바인딩 되어 있는 버퍼(vertexBuffer)에
+        //     삼각형 정보를 담도록 GPU에게 시킨다.
         gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertices), gl.STATIC_DRAW);
         //4.unbind 버퍼
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, null);
@@ -114,27 +160,52 @@
 
         /*************************************4. Renders the scene!****************************************/ 
         //1. 배경 설정
+        // GPU에게 viewport 범위를 싹 칠해버릴 색깔을 지정하도록 시킨다.
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
         gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+        // GPU에게 캔버스의 전체를 viewport 로 지정하도록 시킨다.
         gl.viewport(0,0,canvas.width, canvas.height);
 
         //2. 바인딩 / attr지정 / 활성화
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
         gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, indexBuffer);
+        // shaderProgram 내에서 aVertexPosition에 접근할 수 있는 위치값(포인터)을 GPU한테 시켜서 받아온다.
+        var indexOfVertexPositionAttrubite = gl.getAttribLocation(prg, 'aVertexPosition');
         //gl.vertexAttribPointer(index, size, type, normalized, stride, offset);
-        //size : vertSize는 2차원 좌표계를 사용하면 2, 3차원 좌표계를 사용하면 3이다.
-        //type : vertexBuffer안에 있는 배열 원소의 데이터 타입(gl.FLOAT 등)
-        //normalized : boolean은 넘겨지는 데이터가 자동으로 정규화 되어야 하는 지 여부. 고정소수점 데이터의 정규화 여부. 부호 있는 숫자는 [-1, 1] 사이 값으로 부호 없는 숫자는 [0, 1] 사이 값으로 정규화
-        //stride : 연속된 generic vertex attribute 사이의 byte offset
-        //offset : 배열에 있는 첫번째 generic vertex attribute의 첫번째 컴포넌트에 대한 인덱스 값
-        gl.vertexAttribPointer(prg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-        gl.enableVertexAttribArray(prg.vertexPositionAttribute);
+        // index : aVertexPosition에 접근할 수 있는 위치값
+        // size : vertSize는 2차원 좌표계를 사용하면 2, 3차원 좌표계를 사용하면 3이다. (x,y,z)
+        // type : vertexBuffer안에 있는 배열 원소의 데이터 타입(gl.FLOAT 등)
+        // normalized : boolean은 넘겨지는 데이터가 자동으로 정규화 되어야 하는 지 여부. 고정소수점 데이터의 정규화 여부. 부호 있는 숫자는 [-1, 1] 사이 값으로 부호 없는 숫자는 [0, 1] 사이 값으로 정규화
+        // stride : 연속된 generic vertex attribute 사이의 byte offset (버텍스 하나를 구성하는 byte 수(0 ~ 255의 값))
+        //          stride == (위치 정보 개수 + 기타 정보 개수) * 데이터타입의 byte수
+        //          0이면 기타 정보 개수가 0인 것으로 간주한다.
+        //          여기서는 기타 정보 없이 위치 정보 개수가 3이므로
+        //          stride에 0을 주는 것과 12(위치 정보 개수 3 * float의 byte 수 4)를
+        //          주는 것은 같은 결과를 보여준다.
+        // offset : 배열에 있는 첫번째 generic vertex attribute의 첫번째 컴포넌트에 대한 인덱스 값
+        //          추출하고자 하는 정보의 시작 위치(byte 단위)
+        //          여기서는 기타 정보가 없으므로 0이지만
+        //          기타 정보가 있는 경우 0이외의 값이 올 수 있음
+        gl.vertexAttribPointer(indexOfVertexPositionAttrubite, 3, gl.FLOAT, false, 0, 0);
+        // 파라미터로 지정된 위치에 있는 attribute 변수를 활성화 한다.
+        // 활성화의 의미는 그릴 때 이 attribute 변수의 내용을 사용하도록 한다는 의미
+        // 안 쓸 때는 disableVertexAttribArray(index)를 해준다.
+        gl.enableVertexAttribArray(indexOfVertexPositionAttrubite);
 
         //3. draw
-        gl.drawElements(gl.TRIANGLE_FAN, indices.length, gl.UNSIGNED_SHORT,0);
+        // GPU에게 최종적으로 그리기를 시킨다.
+        // mode : 그리는 방법을 지정. 정확하게는 버퍼 데이터로 생성할 primitive를 지정
+        //        파이프라인 상에서 버텍스 셰이더의 다음 단계인 Primitive 조립 에서
+        //        이 mode 값에 지정된 방식대로 Primitive를 조립한다.
+        // first : 그리기에 사용할 첫번째 버텍스의 위치(0이 아니면 안되던데..)
+        // count : 버텍스의 갯수
+        gl.drawArrays(gl.TRIANGLE_FAN, 0, 4);
+        // gl.drawElements(gl.TRIANGLES, 4, gl.UNSIGNED_SHORT,0);
+        // gl.drawElements(gl.TRIANGLE_FAN, indices.length, gl.UNSIGNED_SHORT,0);
         // gl.drawElements(gl.LINE_STRIP, indices.length, gl.UNSIGNED_SHORT,0);
         // gl.drawArrays(gl.LINE_LOOP, 0, 4);
+        // gl.drawArrays(gl.POINTS, 0, 4);
     })();
 </script>
 </body>

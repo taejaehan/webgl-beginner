@@ -12,14 +12,8 @@
     //attribute : 버텍스 셰이더와 웹지엘 애플리케이션 간의 버텍스 데이터 연결이다. 베텍스 셰이더 내부에서만 사용한다
     //vec3 3개 요소를 갖는 실수형 벡터
     //버퍼를 통해 JavaScript에서 vertexAttribPointer()를 통해 전달 받은 vertex 및 color 값을 저장(index 버퍼는 attribute 변수로 전달되지는 않음) vertex shader에서만 사용되며 읽기 전용 값
-    attribute vec3 aVertexPosition;
-    attribute vec3 aVertexColor;
-
-    //uniform : 오브젝트가 처리되는 동안 값이 변하지 않고 셰이더와 웹지엘 애플리케이션 간 연결을 형성한다.(광원/재질) 유니폼은 버텍스와 프래그먼트 셰이더 양쪽 모두에 사용할 수 있다. 유니폼을 버텍스와 프래그먼트 사이에서 공유하려면 알맞게 선언해야 한다
-    //mat4 (4x4 실수형 행렬)
-    //JavaScript에서 uniformMatrix#fv()를 통해 전달 받은 값을 저장하며 주로 변형(이동, 회전, 스케일)을 계산하기 위한 벡터가 넘어옴 vertex shader, fragment shader 모두 사용되며 읽기 전용 값
-    uniform mat4 uMVMatrix;
-    uniform mat4 uPMatrix;
+    attribute vec3 aVertexPosition; //position of vertext
+    attribute vec3 aVertexColor;    //perspective
 
     //varying : 버텍스 셰이더와 프래그먼트 셰이더 간의 보간된 데이터를 연결한다 베어링은 버텍스 셰이더와 프래그먼트 셰이더에서 공유된다. 베어링의 선언은 버텍스와 프래그먼트 셰이더 사이에서 알맞게 선언한다
     //vec4 4개 요소를 갖는 실수형 벡터
@@ -101,8 +95,6 @@
         gl.useProgram(prg);
         //7.프로그램 애트리뷰트와 유니폼을 변수에 매핑
         prg.vertexPositionAttribute = gl.getAttribLocation(prg, 'aVertexPosition');
-        prg.pMatrixUniform          = gl.getUniformLocation(prg, 'uPMatrix');
-        prg.mvMatrixUniform         = gl.getUniformLocation(prg, 'uMVMatrix');
         prg.vertexColorAttribute    = gl.getAttribLocation(prg, "aVertexColor");
         
 
@@ -146,8 +138,8 @@
         // gl.bindBuffer(gl.ARRAY_BUFFER,null);
 
         /*************************************4. Renders the scene!****************************************/ 
-        var mvMatrix = mat4.create(); // The Model-View matrix
-        var pMatrix = mat4.create(); // The projection matrix
+        // var mvMatrix = mat4.create(); // The Model-View matrix
+        // var pMatrix = mat4.create(); // The projection matrix
         //1. 배경 설정
         gl.clearColor(0.0, 0.0, 0.0, 1.0);
         gl.enable(gl.DEPTH_TEST);
@@ -155,26 +147,25 @@
         gl.viewport(0,0,canvas.width, canvas.height);
 
         //2. 시점을 45도로 종횡비를 캔버스 크기로 설정, 카메라로부터 0.1에서 10000단위 사이에 오브젝트만 랜더링
-        mat4.perspective(45, canvas.width / canvas.height, 0.1, 10000.0, pMatrix);
-        mat4.identity(mvMatrix);    
-        mat4.translate(mvMatrix, [0.0, 0.0, -5.0]);
-        mat4.rotate(mvMatrix,23*Math.PI/180, [0,0,1]);
+        // mat4.perspective(45, canvas.width / canvas.height, 0.1, 10000.0, pMatrix);
+        // mat4.identity(mvMatrix);    
+        // mat4.translate(mvMatrix, [0.0, 0.0, -5.0]);
+        // mat4.rotate(mvMatrix,23*Math.PI/180, [0,0,1]);
 
-        gl.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
-        gl.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
+        // console.log('prg.pMatrixUniform : ' + prg.pMatrixUniform);
+        // gl.uniformMatrix4fv(prg.pMatrixUniform, false, pMatrix);
+        // gl.uniformMatrix4fv(prg.mvMatrixUniform, false, mvMatrix);
 
         //3. 바인딩 / attr지정 / 활성화
         //bindBuffer는 상태변수 / 바인딩 버퍼는 언바인딩할 때까지는 계속 바인딩 상태로 유지된다. 버퍼 상태에 대한 정보는 반드시 바인딩한 버퍼에서만 사용할 수있다. 만일 다른 버퍼에 대한 정보를 알고 싶다면 해당 버퍼를 바인딩부터 해야한다
         gl.bindBuffer(gl.ARRAY_BUFFER, vertexBuffer);
-        gl.vertexAttribPointer(prg.aVertexPosition, 3, gl.FLOAT, false, 0, 0);
+        gl.vertexAttribPointer(prg.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(prg.vertexPositionAttribute);
 
         gl.bindBuffer(gl.ARRAY_BUFFER, squareVerticesColorBuffer);
         gl.vertexAttribPointer(prg.vertexColorAttribute, 4, gl.FLOAT, false, 0, 0);
         gl.enableVertexAttribArray(prg.vertexColorAttribute);
-       
-        
-
+     
         //4. draw
         // gl.drawElements(gl.TRIANGLE_FAN, indices.length, gl.UNSIGNED_SHORT,0);
         // gl.drawElements(gl.LINE_STRIP, indices.length, gl.UNSIGNED_SHORT,0);

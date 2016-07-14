@@ -160,11 +160,6 @@
         }
         return ts;
     }
-    
-    
-                
-
-
 
     /**
     * Provides requestAnimationFrame in a cross browser way.
